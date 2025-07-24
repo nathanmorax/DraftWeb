@@ -27,16 +27,24 @@ struct ContentView: View {
     
     @State var store = Store()
     @State var currentURLString: String = "https://www.objc.io"
+    @State var selectedPage: Page.ID?
     
     var body: some View {
         NavigationSplitView(sidebar: {
-            List {
+            List(selection: $selectedPage) {
                 ForEach(store.pages) { page in
                     Text(page.url.absoluteString)
                 }
             }
         }, detail: {
-            Text("Detail View")
+            
+            if let page = selectedPage {
+                Text(page.uuidString)
+
+            } else {
+                ContentUnavailableView("No Page Selected", systemImage: "globe")
+            }
+            
         })
         .toolbar {
             ToolbarItem(placement: .principal) {
