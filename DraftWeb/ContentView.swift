@@ -7,20 +7,16 @@
 
 import SwiftUI
 import Observation
+import WebKit
 
 struct Page: Identifiable, Hashable {
     var id = UUID()
     var url: URL
 }
 @Observable
-@MyGlobalActor
 class Store {
     var pages: [Page] = []
-    
-    nonisolated init () {
-        
-    }
-    
+
     func submit(_ url: URL) {
         
         pages.append(Page(url: url))
@@ -28,10 +24,33 @@ class Store {
     }
 }
 
-@globalActor
-actor MyGlobalActor {
-    static let shared = MyGlobalActor()
+struct WebView: NSViewRepresentable {
+    
+    var url: URL
+    
+    class Coordinator: NSObject, WKNavigationDelegate {
+        
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        .init()
+    }
+    
+    func makeNSView(context: Context) -> WKWebView {
+        let result = WKWebView()
+        result.navigationDelegate = context.coordinator
+        return result
+    }
+    
+    func updateNSView(_ nsView: WKWebView, context: Context) {
+        
+        if nsView.url != url {
+            let request = URLRequest(url: url)
+            nsView.load(request)
+        }
+    }
 }
+
 
 struct ContentView: View {
     
@@ -48,8 +67,8 @@ struct ContentView: View {
             }
         }, detail: {
             
-            if let page = selectedPage {
-                Text(page.uuidString)
+            if let s = selectedPage, let page = store.pages.first(where: { $0.id == s }) {
+                WebView(url: page.url)
 
             } else {
                 ContentUnavailableView("No Page Selected", systemImage: "globe")
@@ -62,9 +81,7 @@ struct ContentView: View {
                     .onSubmit {
                         if let url = URL(string: currentURLString) {
                             currentURLString = ""
-                            Task {
-                                await store.submit(url)
-                            }
+                                store.submit(url)
                         }
                     }
             }
