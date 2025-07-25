@@ -13,16 +13,26 @@ struct Page: Identifiable, Hashable {
     var url: URL
 }
 @Observable
+@MyGlobalActor
 class Store {
     var pages: [Page] = []
+    
+    nonisolated init () {
+        
+    }
     
     func submit(_ url: URL) {
         
         pages.append(Page(url: url))
         
     }
-    
 }
+
+@globalActor
+actor MyGlobalActor {
+    static let shared = MyGlobalActor()
+}
+
 struct ContentView: View {
     
     @State var store = Store()
@@ -51,8 +61,10 @@ struct ContentView: View {
                 TextField("URL" ,text: $currentURLString)
                     .onSubmit {
                         if let url = URL(string: currentURLString) {
-                            store.submit(url)
                             currentURLString = ""
+                            Task {
+                                await store.submit(url)
+                            }
                         }
                     }
             }
