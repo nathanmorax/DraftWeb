@@ -28,6 +28,40 @@ class Store {
     }
 }
 
+class Box<A> {
+    var value: A
+    
+    init(_ value: A) {
+        self.value = value
+    }
+}
+
+struct NoWebViewError: Error { }
+
+struct WebViewProxy {
+    
+    var box: Box<WKWebView?> = Box(nil)
+    
+    func takeSnapshot() async throws-> NSImage {
+        guard let w = box.value else { throw NoWebViewError()}
+        return try! await w.takeSnapshot(configuration: nil)
+    }
+}
+
+extension EnvironmentValues {
+    
+    @Entry var webViewBox: Box<WKWebView?>?
+}
+
+struct WebViewReader<Content: View>: View {
+    @State private var proxy: WebViewProxy = WebViewProxy()
+    @ViewBuilder var content: (WebViewProxy) -> Content
+    var body: some View {
+        content(proxy)
+            .environment(\.webViewBox, proxy.box)
+    }
+}
+
 struct WebView: NSViewRepresentable {
     
     var url: URL
@@ -49,6 +83,9 @@ struct WebView: NSViewRepresentable {
     
     func updateNSView(_ nsView: WKWebView, context: Context) {
         assert(Thread.isMainThread)
+        
+        context.environment.webViewBox?.value = nsView
+        
         snapShot({
             assert(Thread.isMainThread)
             return try! await nsView.takeSnapshot(configuration: nil)
@@ -83,9 +120,19 @@ struct ContentView: View {
         }, detail: {
             
             if let s = selectedPage, let page = store.pages.first(where: { $0.id == s }) {
-                WebView(url: page.url, snapShot: { takeSnapshot in
-                    self.takeSnapshot = takeSnapshot
-                })
+                
+                WebViewReader { proxy in
+                    WebView(url: page.url, snapShot: { takeSnapshot in
+                        self.takeSnapshot = takeSnapshot
+                    })
+                    .toolbar {
+                        Button("Snapdshot Alt") {
+                            Task {
+                                image = try await proxy.takeSnapshot()
+                            }
+                        }
+                    }
+                }
                 .overlay {
                     if let i = image {
                         Image(nsImage: i)
