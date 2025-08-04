@@ -9,6 +9,7 @@ import SwiftUI
 struct Page: Identifiable, Hashable {
     var id = UUID()
     var url: URL
+    var title: String?
 }
 
 struct NoWebViewError: Error { }
