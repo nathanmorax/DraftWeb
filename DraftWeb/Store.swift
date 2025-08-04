@@ -15,8 +15,10 @@ class Store {
     ]
     
     func submit(_ url: URL) {
-        
         pages.append(Page(url: url))
-        
+    }
+    
+    func remove(_ id: Page.ID) {
+        pages.removeAll() { $0.id == id }
     }
 }
