@@ -7,73 +7,79 @@
 
 import SwiftUI
 
-struct DraftWebTabsView: View {
+struct BrowserToolbarView: View {
     @Binding var store: Store
     @Binding var selectedPage: Page.ID?
+    @State private var addressBarText: String = ""
     
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(store.pages) { page in
-                    DraftWebTabView(
-                        page: page,
-                        isSelected: selectedPage == page.id,
-                        onSelect: {
-                            selectedPage = page.id
-                        },
-                        onClose: {
-                            store.pages.removeAll { $0.id == page.id }
-                            if selectedPage == page.id {
-                                selectedPage = store.pages.last?.id
-                            }
-                        }
-                    )
-                }
-            }
-            .padding(.horizontal, 4)
+    // URL actual de la pestaña seleccionada
+    private var currentPageURL: String {
+        guard let selectedPage = selectedPage,
+              let page = store.pages.first(where: { $0.id == selectedPage }) else {
+            return ""
         }
-        .frame(height: 30)
+        return page.url.absoluteString
     }
-}
-
-struct DraftWebTabView: View {
-    let page: Page
-    let isSelected: Bool
-    let onSelect: () -> Void
-    let onClose: () -> Void
     
     var body: some View {
-        HStack(spacing: 4) {
-            Button {
-                onSelect()
-            } label: {
-                HStack(spacing: 6) {
-                    
-                    Text(page.url.absoluteString)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: 120) // Limita el ancho máximo
+        HStack(spacing: 12) {
+            // Barra de direcciones en el centro
+            TextField("Enter URL or search", text: $addressBarText)
+                .onSubmit {
+                    navigateToURL()
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(isSelected ? Color.gray.opacity(0.3) : Color.clear)
-                .cornerRadius(6)
-            }
-            .buttonStyle(PlainButtonStyle())
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .frame(minWidth: 300, maxWidth: 500)
+                .onChange(of: selectedPage) { _, _ in
+                    // Actualizar el texto cuando cambia la pestaña seleccionada
+                    addressBarText = currentPageURL
+                }
+                .onAppear {
+                    // Inicializar con la URL actual
+                    addressBarText = currentPageURL
+                }
+            
 
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.secondary)
-            }
-            .buttonStyle(PlainButtonStyle())
         }
-        .padding(.vertical, 2)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.blue.opacity(0.2) : Color.clear)
-        )
+        .padding(.horizontal, 8)
+        .frame(height: 40)
+    }
+    
+    private func navigateToURL() {
+        var urlString = addressBarText.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Agregar https:// si no tiene protocolo
+        if !urlString.hasPrefix("http://") && !urlString.hasPrefix("https://") {
+            // Si no contiene punto, buscar en Google
+            if !urlString.contains(".") && !urlString.isEmpty {
+                urlString = "https://www.google.com/search?q=" + urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+            } else {
+                urlString = "https://" + urlString
+            }
+        }
+        
+        guard let url = URL(string: urlString) else { return }
+        
+        if let selectedPageID = selectedPage {
+            // Navegar en la pestaña actual (actualizar URL existente)
+            if let index = store.pages.firstIndex(where: { $0.id == selectedPageID }) {
+                store.pages[index] = Page(url: url)
+                store.pages[index].id = selectedPageID // Mantener el mismo ID
+            }
+        } else {
+            // Crear nueva pestaña
+            store.submit(url)
+            selectedPage = store.pages.last?.id
+        }
+        
+        addressBarText = url.absoluteString
+    }
+    
+    private func createNewTab() {
+        let defaultURL = URL(string: "https://www.google.com")!
+        store.submit(defaultURL)
+        selectedPage = store.pages.last?.id
+        addressBarText = defaultURL.absoluteString
     }
 }
 
@@ -81,6 +87,49 @@ struct DraftWebTabView: View {
     @State var store = Store()
     @State var selectedPage: Page.ID? = nil
     
-    return DraftWebTabsView(store: $store, selectedPage: $selectedPage)
-        .padding()
+    return BrowserToolbarView(
+        store: $store,
+        selectedPage: $selectedPage
+    )
+    .padding()
+}
+
+
+struct DraftWebTabsRightView: View {
+    @Binding var store: Store
+    @Binding var selectedPage: Page.ID?
+    @State private var addressBarText: String = ""
+
+    var onScreenshot: (() async throws -> NSImage)?
+    
+    var body: some View {
+        
+        HStack {
+            
+            Button {
+                createNewTab()
+            } label: {
+                Image(systemName: "plus")
+            }
+            
+            Button {
+                Task {
+                    if let onScreenshot = onScreenshot {
+                        try await onScreenshot()
+                    }
+                }
+                
+            } label: {
+                Image(systemName: "camera")
+                
+            }
+        }
+    }
+    
+    private func createNewTab() {
+        let defaultURL = URL(string: "https://www.objc.io")!
+        store.submit(defaultURL)
+        selectedPage = store.pages.last?.id
+        addressBarText = defaultURL.absoluteString
+    }
 }

@@ -42,42 +42,22 @@ struct ContentView: View {
             })
             .toolbar {
                 ToolbarItem(placement: .navigation) {
-                    DraftWebTabsView(store: $store, selectedPage: $selectedPage)
+                    BrowserToolbarView(store: $store, selectedPage: $selectedPage)
+                    
+                    
                 }
-                
-                // Campo para ingresar URL
-                /* ToolbarItem(placement: .principal) {
-                 TextField("URL", text: $currentURLString)
-                 .onSubmit {
-                 if let url = URL(string: currentURLString) {
-                 store.submit(url)
-                 selectedPage = store.pages.last?.id
-                 currentURLString = ""
-                 }
-                 }
-                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                 .frame(width: 400)
-                 }*/
                 
                 // Botón para tomar snapshot
                 
-                ToolbarItem {
-                    Button {
+                ToolbarItem(placement: .primaryAction) {
+                    
+                    DraftWebTabsRightView(store: $store, selectedPage: $selectedPage) {
+                        image = try await proxy.takeSnapshot()
+                        return image!
                         
-                    } label: {
-                        Image(systemName: "plus")
                     }
                 }
                 
-                ToolbarItem {
-                    Button {
-                        Task {
-                            image = try await proxy.takeSnapshot()
-                        }
-                    } label: {
-                        Image(systemName: "camera")
-                    }
-                }
             }
             
         }
